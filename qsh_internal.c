@@ -98,7 +98,7 @@ static int qsh_quit(int argc, char **argv){
 DEFINE_QSH_CMD(quit, qsh_quit, quit qsh from current contex);
 
 
-#ifdef ENABLE_HISTORY_COMMAND
+#if QSH_ENABLE_HISTORY_COMMAND
 /**
  * @brief display the historical commands.
  * 
@@ -110,7 +110,7 @@ static int qsh_history(int argc, char **argv){
     extern struct qsh qshell;
     struct qsh *shell = &qshell;
     
-    int size = shell->full ? MAX_HISTORY_SIZE : shell->head - shell->tail;
+    int size = shell->full ? QSH_MAX_HISTORY_SIZE : shell->head - shell->tail;
     qsh_output("historical commands :%d\n", size);
     if(size == 0) return 0;
 
@@ -120,15 +120,15 @@ static int qsh_history(int argc, char **argv){
     int i, count = 0;
     if(shell->head > shell->tail){
         for(i = shell->tail; i < shell->head; ++i){
-            #if ONLY_ENABLE_MINIMAL_HISTORY
+            #if QSH_ONLY_ENABLE_MINIMAL_HISTORY
             qsh_output("%d\t %s\n", ++count, shell->history[i]->name);
             #else
             qsh_output("%d\t %s\n", ++count, shell->history[i]);
             #endif
         }
     }else{
-        for(i = shell->tail; i < MAX_HISTORY_SIZE; ++i){
-           #if ONLY_ENABLE_MINIMAL_HISTORY
+        for(i = shell->tail; i < QSH_MAX_HISTORY_SIZE; ++i){
+           #if QSH_ONLY_ENABLE_MINIMAL_HISTORY
             qsh_output("%d\t %s\n", ++count, shell->history[i]->name);
             #else
             qsh_output("%d\t %s\n", ++count, shell->history[i]);
@@ -136,7 +136,7 @@ static int qsh_history(int argc, char **argv){
         }
 
         for(i = 0; i < shell->head; ++i){
-            #if ONLY_ENABLE_MINIMAL_HISTORY
+            #if QSH_ONLY_ENABLE_MINIMAL_HISTORY
             qsh_output("%d\t %s\n", ++count, shell->history[i]->name);
             #else
             qsh_output("%d\t %s\n", ++count, shell->history[i]);
@@ -149,24 +149,64 @@ static int qsh_history(int argc, char **argv){
 DEFINE_QSH_CMD(history, qsh_history, Display the commands history list);
 #endif
 
+/**
+ * @brief The following are the commands for variable tracing.
+ * 
+ */
+#if QSH_ENABLE_VARIABLE_TRACE
+extern struct qsh_var *qsh_fetch_var(struct qsh *sh, const char *var, size_t size);
 static int qsh_set(int argc, char **argv){
+    extern struct qsh qshell;
+    struct qsh *shell = &qshell;
     if(argc <= 1){
         qsh_output("Usage: set [VARIABLE] [VALUE]...\n");
+        return 0;
     }
 
+    QSH_ASSERT(argv[1]);
+    
+    struct qsh_var *target = qsh_fetch_var(shell, argv[1], strlen(argv[1]));
 
-    return 0;
+    if(target == NULL){
+        qsh_output("@Attation: can't find %s\n", argv[1]);
+        return -1;
+    }
+    
+    if(target->write == NULL){
+        qsh_output("sorry, %s can't be written.\n", argv[1]);
+        return 0;
+    }
+    int ret = target->write(argc - 1, argv + 1);
+    return ret;
 }
 DEFINE_QSH_CMD(set, qsh_set, Set value for a variable);
 
 static int qsh_get(int argc, char **argv){
+   extern struct qsh qshell;
+    struct qsh *shell = &qshell;
     if(argc <= 1){
-        qsh_output("Usage: get [VARIABLE]...\n");
+        qsh_output("Usage: get [VARIABLE]\n");
+        return 0;
     }
 
-    return 0;
+    QSH_ASSERT(argv[1]);
+    
+    struct qsh_var *target = qsh_fetch_var(shell, argv[1], strlen(argv[1]));
+
+    if(target == NULL){
+        qsh_output("@Attation: can't find %s\n", argv[1]);
+        return -1;
+    }
+    
+    if(target->read == NULL){
+        qsh_output("sorry, %s can't be read.\n", argv[1]);
+        return 0;
+    }
+    int ret = target->read(argc - 1, argv + 1);
+    return ret;
 }
 DEFINE_QSH_CMD(get, qsh_get, get value for a variable);
+#endif  /** end of the QSH_ENABLE_VARIABLE_TRACE */
 
 /**
  * @}

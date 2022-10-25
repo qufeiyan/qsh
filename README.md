@@ -28,11 +28,9 @@
 - Support `cursor` left and right `movement` when entering command line
 - Support `user-defined commands`
 - Support `user-selectable configuration`, such as historical command support, history size, command line output buffer size and other configurations
-
+- Support `global varialbe tracing`
 ---
-## To do list
-- View global variables in the current application on the command line
-- Dynamically modify global variables in the current application to cooperate with debugging
+## <span style = "color :green">To do list</span>
 - Support privilege authentication
 - Support Embedded file system 
 - Support Embedded multithreaded debugging

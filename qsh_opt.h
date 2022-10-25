@@ -20,50 +20,54 @@ extern "C" {
  * @brief Enable historical command.
  * 
  */
-#define ENABLE_HISTORY_COMMAND
+#define QSH_ENABLE_HISTORY_COMMAND          (1)
 /**
  * @brief Only enable minimal history.
  * 
  */
-#ifdef ENABLE_HISTORY_COMMAND
-#define ONLY_ENABLE_MINIMAL_HISTORY     (1)
+#if QSH_ENABLE_HISTORY_COMMAND
+#define QSH_ONLY_ENABLE_MINIMAL_HISTORY     (0)
 #endif
 
 /**
  * @brief The number of the arguments supported by one command.
  * 
  */
-#define MAX_COMMAND_ARGS                (8)
+#define QSH_MAX_COMMAND_ARGS                (8)
 
 /**
  * @brief The maximum size for each command.
  * 
  */
-#define MAX_COMMAND_SIZE                (80)
+#define QSH_MAX_COMMAND_SIZE                (80)
 
 
-#ifdef ENABLE_HISTORY_COMMAND
+#if QSH_ENABLE_HISTORY_COMMAND
 /**
  * @brief The maximum number of the historical commands.
  * 
  * @note The size must be 2 the nth power.
  */
-#define MAX_HISTORY_SIZE                (8)
+#define QSH_MAX_HISTORY_SIZE                (8)
 #endif
 
 /**
  * @brief The buffer size of the formated output. 
  * 
  */
-#define QSH_OUTPUT_BUFFER             (256 * 2)
+#define QSH_OUTPUT_BUFFER                   (256 * 2)
 
 /**
  * @brief The macro decide whether to display a smaller qsh's logo.  
  * @note  the biger logo needs QSH_OUTPUT_BUFFER is greater than or qual to 256 * 2.      
  */
-#define QSH_LOGO_SELECT_MINIMAL       (1)
+#define QSH_LOGO_SELECT_MINIMAL             (1)
 
-
+/**
+ * @brief Whether to enable global variable tracking
+ * 
+ */
+#define QSH_ENABLE_VARIABLE_TRACE           (1)
 
 #ifdef __cplusplus
 }

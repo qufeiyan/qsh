@@ -15,6 +15,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "qsh_var.h"
+
 #define EOL "\n"
 
 const char *qsh_logo = {
@@ -58,17 +60,39 @@ typedef struct qsh_cmd qsh_cmd_t;
 typedef struct qsh qsh_t;
 
 qsh_t qshell;
+DEFINE_QSH_VAR(qshell, qshell, qsh_var_read_qshell, NULL);
 
-#ifdef ENABLE_HISTORY_COMMAND
+#if QSH_ENABLE_VARIABLE_TRACE
+typedef struct qsh_var qsh_var_t;
+
+qsh_var_t *qsh_fetch_var(qsh_t *sh, const char *var, size_t size){
+    QSH_ASSERT(sh && var && size > 0);
+    
+    qsh_var_t *target = NULL;
+    qsh_var_t *index; 
+
+    for (index = sh->first; index < sh->last; ++index) {
+        if (index->name[size] == 0 && 
+            strncmp(index->name, var, size) == 0) {
+            target = index;
+            break;
+        }
+    }
+    return target;
+}
+
+#endif
+
+#if QSH_ENABLE_HISTORY_COMMAND
 
 #define QSH_HISTORY_NULL(shell)  (shell->head == shell->tail && shell->full == 0) 
 #define QSH_HISTORY_VALID(shell) ((shell->previous >= shell->tail && shell->previous < shell->head) \
                         || (shell->full))
-#define QSH_HISTORY_COUNT(shell) (shell->full ? MAX_HISTORY_SIZE : (shell->head - shell->tail))
+#define QSH_HISTORY_COUNT(shell) (shell->full ? QSH_MAX_HISTORY_SIZE : (shell->head - shell->tail))
 #define QSH_UP(shell)    do{                                          \
     shell->up_peak = (shell->previous == shell->tail ? 1 : 0);        \
     int psudo = (shell->previous - 1 >= 0) ?                          \
-        (shell->previous - 1) : (MAX_HISTORY_SIZE - 1);               \
+        (shell->previous - 1) : (QSH_MAX_HISTORY_SIZE - 1);               \
     shell->previous = ((psudo >= shell->tail && psudo < shell->head)  \
         || shell->full) ? psudo : shell->tail;                        \
 }while(0)  
@@ -76,12 +100,12 @@ qsh_t qshell;
 #define QSH_DOWN(shell)  do{                                          \
     shell->down_valley = (shell->previous ==  \
         (shell->head - 1) ? 1 : 0);  \
-    int psudo = ((shell->previous + 1) & (MAX_HISTORY_SIZE - 1));     \
+    int psudo = ((shell->previous + 1) & (QSH_MAX_HISTORY_SIZE - 1));     \
     shell->previous = ((psudo >= shell->tail && psudo < shell->head)  \
         || shell->full) ? psudo : shell->head - 1;                    \
 }while(0)
 
-#if ONLY_ENABLE_MINIMAL_HISTORY
+#if QSH_ONLY_ENABLE_MINIMAL_HISTORY
 /**
  * @brief Push current command to historical list.
  * 
@@ -95,19 +119,19 @@ static int qsh_push_history(qsh_cmd_t* qsh_cmd){
     if(shell->full == 1){
         if(shell->history[shell->head - 1] != qsh_cmd){
             shell->history[shell->head] = qsh_cmd;
-            shell->head = ((shell->head + 1) & (MAX_HISTORY_SIZE - 1));
-            shell->tail = ((shell->tail + 1) & (MAX_HISTORY_SIZE - 1)); //! discard the oldest command.
+            shell->head = ((shell->head + 1) & (QSH_MAX_HISTORY_SIZE - 1));
+            shell->tail = ((shell->tail + 1) & (QSH_MAX_HISTORY_SIZE - 1)); //! discard the oldest command.
         }
     }else {
         if(shell->history[shell->head - 1] != qsh_cmd){
             shell->history[shell->head] = qsh_cmd;
-            shell->head = ((shell->head + 1) & (MAX_HISTORY_SIZE - 1));
+            shell->head = ((shell->head + 1) & (QSH_MAX_HISTORY_SIZE - 1));
         }
         if(shell->head == shell->tail) shell->full = 1;
     }
     
     shell->previous = (shell->head - 1 >= 0) 
-        ? (shell->head - 1) : (shell->head - 1 + MAX_HISTORY_SIZE);
+        ? (shell->head - 1) : (shell->head - 1 + QSH_MAX_HISTORY_SIZE);
     return 0;
 }
 #else
@@ -121,23 +145,23 @@ static int qsh_push_history(void){
     QSH_ASSERT(shell->initialized);
       
     if(shell->full == 1){
-        if(memcmp(&shell->history[shell->head - 1], shell->line, MAX_COMMAND_SIZE)){
-            memset(&shell->history[shell->head], 0, MAX_COMMAND_SIZE);
+        if(memcmp(&shell->history[shell->head - 1], shell->line, QSH_MAX_COMMAND_SIZE)){
+            memset(&shell->history[shell->head], 0, QSH_MAX_COMMAND_SIZE);
             memcpy(&shell->history[shell->head], shell->line, shell->line_pos);
-            shell->head = ((shell->head + 1) & (MAX_HISTORY_SIZE - 1));
-            shell->tail = ((shell->tail + 1) & (MAX_HISTORY_SIZE - 1)); //! discard the oldest command.
+            shell->head = ((shell->head + 1) & (QSH_MAX_HISTORY_SIZE - 1));
+            shell->tail = ((shell->tail + 1) & (QSH_MAX_HISTORY_SIZE - 1)); //! discard the oldest command.
         }
     }else {
-        if(memcmp(&shell->history[shell->head - 1], shell->line, MAX_COMMAND_SIZE)){
-            memset(&shell->history[shell->head], 0, MAX_COMMAND_SIZE);
+        if(memcmp(&shell->history[shell->head - 1], shell->line, QSH_MAX_COMMAND_SIZE)){
+            memset(&shell->history[shell->head], 0, QSH_MAX_COMMAND_SIZE);
             memcpy(&shell->history[shell->head], shell->line, shell->line_pos);
-            shell->head = ((shell->head + 1) & (MAX_HISTORY_SIZE - 1));
+            shell->head = ((shell->head + 1) & (QSH_MAX_HISTORY_SIZE - 1));
         }
         if(shell->head == shell->tail) shell->full = 1;
     }
     
     shell->previous = (shell->head - 1 >= 0) 
-        ? (shell->head - 1) : (shell->head - 1 + MAX_HISTORY_SIZE);
+        ? (shell->head - 1) : (shell->head - 1 + QSH_MAX_HISTORY_SIZE);
     return 0;
 }
 #endif
@@ -173,13 +197,13 @@ static cmd_t *qsh_find(qsh_t *sh, const char *cmd, size_t size){
  * @param argv is the result string array after parsing.
  * @return the number of arguments include command name.
  */
-static int qsh_parse(char *cmd, char *argv[MAX_COMMAND_ARGS]){
+static int qsh_parse(char *cmd, char *argv[QSH_MAX_COMMAND_ARGS]){
     QSH_ASSERT(cmd && argv);
 
     int argc = 0;
     char *ptr = NULL;
     ptr = strtok((char *)cmd, " ");
-    while (ptr != NULL && argc < MAX_COMMAND_ARGS) {
+    while (ptr != NULL && argc < QSH_MAX_COMMAND_ARGS) {
         argv[argc++] = ptr;
         ptr = strtok(NULL, " ");
         if(ptr) ptr[-1] = '\0';
@@ -199,7 +223,7 @@ static int qsh_exec(char *cmd, int length){
     QSH_ASSERT(cmd && length > 0);
 
     int ret;
-    char *argv[MAX_COMMAND_ARGS];
+    char *argv[QSH_MAX_COMMAND_ARGS];
     int argc;
     cmd_t *command;
     /* strim the beginning of command */
@@ -223,8 +247,8 @@ static int qsh_exec(char *cmd, int length){
 
     ret = (*command)(argc, argv);
 
-#ifdef ENABLE_HISTORY_COMMAND
-    #if ONLY_ENABLE_MINIMAL_HISTORY
+#if QSH_ENABLE_HISTORY_COMMAND
+    #if QSH_ONLY_ENABLE_MINIMAL_HISTORY
     qsh_push_history(container_of(command, qsh_cmd_t, func));
     #else
     qsh_push_history();
@@ -235,10 +259,17 @@ static int qsh_exec(char *cmd, int length){
 
 void qsh_symbol_init(struct qsh *shell){
     QSH_ASSERT(shell);
-    extern unsigned long __QSH_SHELL_START;
-    extern unsigned long __QSH_SHELL_END;
-    shell->start = (qsh_cmd_t *)&__QSH_SHELL_START;
-    shell->end = (qsh_cmd_t *)&__QSH_SHELL_END;
+    extern unsigned long __QSH_SHELL_CMD_START;
+    extern unsigned long __QSH_SHELL_CMD_END;
+    shell->start = (qsh_cmd_t *)&__QSH_SHELL_CMD_START;
+    shell->end = (qsh_cmd_t *)&__QSH_SHELL_CMD_END;
+
+#if QSH_ENABLE_VARIABLE_TRACE
+    extern unsigned long __QSH_SHELL_VAR_START;
+    extern unsigned long __QSH_SHELL_VAR_END;
+    shell->first = (qsh_var_t *)&__QSH_SHELL_VAR_START;
+    shell->last = (qsh_var_t *)&__QSH_SHELL_VAR_END;
+#endif
 }
 
 void qsh_init(struct qsh *shell){
@@ -254,7 +285,7 @@ static void qsh_handle_direction(int ch){
     qsh_t *shell = &qshell;
     switch (ch) {        
         case 0x41:{
-#ifdef ENABLE_HISTORY_COMMAND
+#if QSH_ENABLE_HISTORY_COMMAND
             if(QSH_HISTORY_NULL(shell)) return; 
             if(shell->up_peak){
                 // qsh_output("%d\n", shell->previous);
@@ -262,11 +293,11 @@ static void qsh_handle_direction(int ch){
                 shell->up_peak = !shell->up_peak;
                 return;
             } 
-        #if ONLY_ENABLE_MINIMAL_HISTORY
+        #if QSH_ONLY_ENABLE_MINIMAL_HISTORY
             memcpy(shell->line, shell->history[shell->previous]->name, 
                 strlen(shell->history[shell->previous]->name) + 1);
         #else
-            memcpy(shell->line, shell->history[shell->previous], MAX_COMMAND_SIZE);
+            memcpy(shell->line, shell->history[shell->previous], QSH_MAX_COMMAND_SIZE);
         #endif
             shell->line_curpos = shell->line_pos = strlen(shell->line);
             qsh_output("\033[2K\r");
@@ -283,12 +314,12 @@ static void qsh_handle_direction(int ch){
                 shell->down_valley = !shell->down_valley;
                 return;
             }
-#ifdef ENABLE_HISTORY_COMMAND
-        #if ONLY_ENABLE_MINIMAL_HISTORY
+#if QSH_ENABLE_HISTORY_COMMAND
+        #if QSH_ONLY_ENABLE_MINIMAL_HISTORY
             memcpy(shell->line, shell->history[shell->previous]->name, 
                 strlen(shell->history[shell->previous]->name) + 1);
         #else
-            memcpy(shell->line, shell->history[shell->previous], MAX_COMMAND_SIZE);
+            memcpy(shell->line, shell->history[shell->previous], QSH_MAX_COMMAND_SIZE);
         #endif
             shell->line_curpos = shell->line_pos = strlen(shell->line);
             qsh_output("\033[2K\r");
@@ -408,6 +439,9 @@ void qsh_entry(void *args){
     qsh_t *shell = &qshell;
     qsh_init(shell);
 
+#if QSH_LOGO_SELECT_MINIMAL
+    qsh_output("%s\n", qsh_logo);
+#endif
     qsh_output(shell->prompt);
 
     enum key_stat{
